@@ -20,13 +20,15 @@ type Collision struct {
 }
 
 type Analysis struct {
-	Metrics    Metrics
-	Collisions []Collision
+	Metrics            Metrics
+	Collisions         []Collision
+	CombiningMarkPaths []string
 }
 
 func AnalyzePaths(paths []string) Analysis {
 	analysis := Analysis{}
 	groups := make(map[string]map[string]struct{})
+	combiningSet := make(map[string]struct{})
 
 	for _, p := range paths {
 		nfc := norm.NFC.IsNormalString(p)
@@ -39,6 +41,7 @@ func AnalyzePaths(paths []string) Analysis {
 		}
 		if hasCombiningMark(p) {
 			analysis.Metrics.CombiningMarkPaths++
+			combiningSet[p] = struct{}{}
 		}
 
 		nfcPath := norm.NFC.String(p)
@@ -65,6 +68,10 @@ func AnalyzePaths(paths []string) Analysis {
 	sort.Slice(analysis.Collisions, func(i, j int) bool {
 		return analysis.Collisions[i].NormalizedPath < analysis.Collisions[j].NormalizedPath
 	})
+	for p := range combiningSet {
+		analysis.CombiningMarkPaths = append(analysis.CombiningMarkPaths, p)
+	}
+	sort.Strings(analysis.CombiningMarkPaths)
 
 	analysis.Metrics.NFCCollisions = len(analysis.Collisions)
 	return analysis

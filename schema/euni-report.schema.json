@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schema/euni-report.schema.json",
+  "title": "euni-report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "command",
+    "repo",
+    "recursive",
+    "status",
+    "exitCode",
+    "summary",
+    "results",
+    "errors",
+    "startedAt",
+    "finishedAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "command": {
+      "type": "string"
+    },
+    "repo": {
+      "type": "string"
+    },
+    "recursive": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "findings", "error"]
+    },
+    "exitCode": {
+      "type": "integer",
+      "enum": [0, 1, 2]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetRepos",
+        "findings",
+        "errors",
+        "durationMs",
+        "nfcOnly",
+        "nfdOnly",
+        "nfcCollisions",
+        "combiningMarkPaths"
+      ],
+      "properties": {
+        "targetRepos": { "type": "integer", "minimum": 0 },
+        "findings": { "type": "integer", "minimum": 0 },
+        "errors": { "type": "integer", "minimum": 0 },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "nfcOnly": { "type": "integer", "minimum": 0 },
+        "nfdOnly": { "type": "integer", "minimum": 0 },
+        "nfcCollisions": { "type": "integer", "minimum": 0 },
+        "combiningMarkPaths": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "repoPath",
+          "kind",
+          "code",
+          "message",
+          "path",
+          "targetType",
+          "expected",
+          "actual",
+          "action",
+          "details"
+        ],
+        "properties": {
+          "repoPath": { "type": "string" },
+          "kind": { "type": "string", "enum": ["drift", "unicode", "policy", "environment"] },
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "path": { "type": ["string", "null"] },
+          "targetType": { "type": "string", "enum": ["path", "configKey", "repo"] },
+          "expected": { "type": ["string", "null"] },
+          "actual": { "type": ["string", "null"] },
+          "action": { "type": ["string", "null"] },
+          "details": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "repoPath", "path", "hint"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "repoPath": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] },
+          "hint": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" }
+  }
+}
