@@ -103,6 +103,22 @@ euni apply --repo . --recursive --policy ./.euni.yml
 euni doctor --repo . --recursive --policy ./.euni.yml
 ```
 
+## Homebrew でインストール（同一リポジトリ Tap）
+
+このリポジトリ自体を Tap として利用します。
+
+```bash
+brew tap --custom-remote takuto-tanaka-4digit/excel-unidiff-cli https://github.com/takuto-tanaka-4digit/excel-unidiff-cli
+brew install takuto-tanaka-4digit/excel-unidiff-cli/euni
+```
+
+更新時:
+
+```bash
+brew update
+brew upgrade takuto-tanaka-4digit/excel-unidiff-cli/euni
+```
+
 ## CI 組み込みの要点
 
 JSON モードを使い、レポート契約を検証してください。

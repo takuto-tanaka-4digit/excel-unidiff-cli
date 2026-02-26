@@ -103,6 +103,22 @@ euni apply --repo . --recursive --policy ./.euni.yml
 euni doctor --repo . --recursive --policy ./.euni.yml
 ```
 
+## Install with Homebrew (Same Repo Tap)
+
+Use this repository itself as the tap source.
+
+```bash
+brew tap --custom-remote takuto-tanaka-4digit/excel-unidiff-cli https://github.com/takuto-tanaka-4digit/excel-unidiff-cli
+brew install takuto-tanaka-4digit/excel-unidiff-cli/euni
+```
+
+Upgrade later:
+
+```bash
+brew update
+brew upgrade takuto-tanaka-4digit/excel-unidiff-cli/euni
+```
+
 ## CI Integration Essentials
 
 Use JSON mode and validate the report contract.
