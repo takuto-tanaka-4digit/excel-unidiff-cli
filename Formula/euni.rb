@@ -9,13 +9,14 @@ class Euni < Formula
   depends_on "go" => :build
 
   def install
+    short_commit = version.to_s.split("-").last
     ldflags = %W[
       -s
       -w
       -X
       main.version=#{version}
       -X
-      main.commit=334e1a1
+      main.commit=#{short_commit}
     ]
     system "go", "build", *std_go_args(ldflags: ldflags), "./cmd/euni"
   end
@@ -23,5 +24,6 @@ class Euni < Formula
   test do
     output = shell_output("#{bin}/euni version")
     assert_match "euni", output
+    assert_match version.to_s, output
   end
 end

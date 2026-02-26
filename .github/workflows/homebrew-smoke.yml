@@ -1,0 +1,35 @@
+name: homebrew-smoke
+
+on:
+  push:
+    paths:
+      - "Formula/**"
+      - "README.md"
+      - "README.ja.md"
+      - ".github/workflows/homebrew-smoke.yml"
+  pull_request:
+    paths:
+      - "Formula/**"
+      - "README.md"
+      - "README.ja.md"
+      - ".github/workflows/homebrew-smoke.yml"
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Brew style
+        run: brew style Formula/euni.rb
+
+      - name: Tap local repository
+        run: |
+          brew untap takuto-tanaka-4digit/excel-unidiff-cli || true
+          brew tap --custom-remote takuto-tanaka-4digit/excel-unidiff-cli "${GITHUB_WORKSPACE}"
+
+      - name: Build from source
+        run: brew install --build-from-source takuto-tanaka-4digit/excel-unidiff-cli/euni
+
+      - name: Formula test
+        run: brew test takuto-tanaka-4digit/excel-unidiff-cli/euni
