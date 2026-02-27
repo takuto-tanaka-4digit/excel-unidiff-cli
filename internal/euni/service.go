@@ -238,6 +238,90 @@ func (s *Service) evaluate(repos []repoTarget, opts Options, p *policy.Policy) (
 			}
 		}
 
+		if applyMode && opts.RepairUnicodeDeletes {
+			repairPlan, err := gitListDeletedTrackedPathsForRepair(repoTarget.AbsPath)
+			if err != nil {
+				errs = append(errs, errorItem("UG002", "failed to list deleted tracked paths for unicode repair", strPtr(repoPath), nil))
+			} else if repairPlan.TotalCount() > 0 {
+				restorableStagedPaths, conflictingStagedPaths, splitErr := splitRestorableAndConflictingStagedDeletedPaths(repoTarget.AbsPath, repairPlan.StagedPaths)
+				if splitErr != nil {
+					errs = append(errs, errorItem("UG002", "failed to inspect staged deleted paths for unicode repair", strPtr(repoPath), nil))
+					continue
+				}
+				plannedRestoreCount := len(restorableStagedPaths) + len(repairPlan.WorktreePaths)
+
+				if opts.DryRun {
+					count := strconv.Itoa(plannedRestoreCount)
+					action := "would restore staged deletions with --staged --worktree and worktree deletions with --worktree (precomposeunicode=false)"
+					message := fmt.Sprintf("unicode delete repair would restore %s path(s)", count)
+					if len(conflictingStagedPaths) > 0 {
+						message = fmt.Sprintf(
+							"unicode delete repair would restore %s path(s); %d staged path(s) would be skipped to avoid overwriting existing files",
+							count,
+							len(conflictingStagedPaths),
+						)
+					}
+					entry := resultItem(
+						"UG014",
+						"environment",
+						message,
+						nil,
+						"path",
+						nil,
+						nil,
+						&action,
+						map[string]any{
+							"detectedCount":         repairPlan.TotalCount(),
+							"restoreCount":          plannedRestoreCount,
+							"stagedDeleteCount":     len(repairPlan.StagedPaths),
+							"worktreeDeleteCount":   len(repairPlan.WorktreePaths),
+							"restorableStagedPaths": restorableStagedPaths,
+							"worktreePaths":         repairPlan.WorktreePaths,
+							"skipCount":             len(conflictingStagedPaths),
+							"skipPaths":             conflictingStagedPaths,
+						},
+					)
+					entry.RepoPath = repoPath
+					results = append(results, entry)
+				} else {
+					outcome, err := gitRestoreDeletedTrackedPathsForRepair(repoTarget.AbsPath, repairPlan)
+					if err != nil {
+						errs = append(errs, errorItem("UG002", "failed to restore deleted tracked paths for unicode repair", strPtr(repoPath), nil))
+					} else {
+						if outcome.RestoredCount() > 0 {
+							s.logger.Progressf("repaired unicode delete drift in %s: restored %d path(s)", repoPath, outcome.RestoredCount())
+						}
+						if len(outcome.SkippedStagedPaths) > 0 {
+							action := "review skipped paths and resolve manually to avoid overwriting existing files"
+							entry := resultItem(
+								"UG014",
+								"environment",
+								fmt.Sprintf(
+									"unicode delete repair skipped %d staged path(s) to avoid overwriting existing files",
+									len(outcome.SkippedStagedPaths),
+								),
+								nil,
+								"path",
+								nil,
+								nil,
+								&action,
+								map[string]any{
+									"detectedCount":         repairPlan.TotalCount(),
+									"restoreCount":          outcome.RestoredCount(),
+									"skipCount":             len(outcome.SkippedStagedPaths),
+									"skipPaths":             outcome.SkippedStagedPaths,
+									"restoredStagedPaths":   outcome.RestoredStagedPaths,
+									"restoredWorktreePaths": outcome.RestoredWorktreePaths,
+								},
+							)
+							entry.RepoPath = repoPath
+							results = append(results, entry)
+						}
+					}
+				}
+			}
+		}
+
 		tracked, err := gitListTracked(repoTarget.AbsPath)
 		if err != nil {
 			errs = append(errs, errorItem("UG002", "failed to list tracked files", strPtr(repoPath), nil))

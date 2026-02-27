@@ -17,6 +17,9 @@ Goal: decide quickly which command to run, in what order, and how to interpret r
 - `euni apply`
   - Apply policy drift fixes via `git config --local` only.
   - Use `--dry-run` before writing.
+  - Use `--repair-unicode-deletes` to restore staged/worktree deleted tracked paths in `core.precomposeunicode=false` mode.
+  - The repair keeps staged non-delete changes (`worktree-only delete` is restored with `git restore --worktree`).
+  - Caution: this restores deleted tracked paths in scope; do not use when deletions are intentional.
 - `euni doctor`
   - Combined diagnosis (`check` + scan-like Unicode analysis).
 - `euni scan`
@@ -50,7 +53,13 @@ euni apply --repo . --recursive --policy ./.euni.yml
 euni check --repo . --recursive --policy ./.euni.yml
 ```
 
-### 3) Hard-case diagnosis
+### 3) Unicode phantom delete repair (one command)
+
+```bash
+euni apply --repo . --recursive --policy ./.euni.yml --repair-unicode-deletes
+```
+
+### 4) Hard-case diagnosis
 
 ```bash
 euni doctor --repo . --recursive --policy ./.euni.yml
@@ -97,6 +106,7 @@ Common findings (`exit 1`):
 - `UG011`: combining mark in path.
 - `UG012`: non-standard FS entry (symlink/reparse/mount).
 - `UG013`: ambiguous policy path key (case-only collision).
+- `UG014`: unicode delete repair signal (dry-run plan or runtime safety skip).
 
 Common execution errors (`exit 2`):
 

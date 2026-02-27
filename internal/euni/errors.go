@@ -51,6 +51,8 @@ func hintFor(code string) string {
 		return "Inspect non-standard filesystem entries (symlink/reparse/mount)."
 	case "UG013":
 		return "Resolve ambiguous policy path keys and keep exact-case unique paths."
+	case "UG014":
+		return "Run apply with --repair-unicode-deletes, then resolve any skipped paths manually if reported."
 	default:
 		return "See runbook for this code."
 	}

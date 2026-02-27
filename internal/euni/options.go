@@ -10,16 +10,17 @@ import (
 )
 
 type Options struct {
-	Command        string
-	Repo           string
-	Recursive      bool
-	PolicyPath     string
-	Format         string
-	Quiet          bool
-	NonInteractive bool
-	LogFile        string
-	DryRun         bool
-	Force          bool
+	Command              string
+	Repo                 string
+	Recursive            bool
+	PolicyPath           string
+	Format               string
+	Quiet                bool
+	NonInteractive       bool
+	LogFile              string
+	DryRun               bool
+	RepairUnicodeDeletes bool
+	Force                bool
 }
 
 func ParseOptions(argv []string) (Options, error) {
@@ -56,11 +57,13 @@ func parseOperationalOptions(cmd string, args []string) (Options, error) {
 
 	var policyRef *string
 	var dryRunRef *bool
+	var repairUnicodeDeletesRef *bool
 	if cmd != "scan" {
 		policyRef = fs.String("policy", "", "")
 	}
 	if cmd == "apply" {
 		dryRunRef = fs.Bool("dry-run", false, "")
+		repairUnicodeDeletesRef = fs.Bool("repair-unicode-deletes", false, "")
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -88,17 +91,22 @@ func parseOperationalOptions(cmd string, args []string) (Options, error) {
 	if dryRunRef != nil {
 		dryRun = *dryRunRef
 	}
+	repairUnicodeDeletes := false
+	if repairUnicodeDeletesRef != nil {
+		repairUnicodeDeletes = *repairUnicodeDeletesRef
+	}
 
 	return Options{
-		Command:        cmd,
-		Repo:           *repo,
-		Recursive:      *recursive,
-		PolicyPath:     policyPath,
-		Format:         *format,
-		Quiet:          *quiet,
-		NonInteractive: *nonInteractive,
-		LogFile:        *logFile,
-		DryRun:         dryRun,
+		Command:              cmd,
+		Repo:                 *repo,
+		Recursive:            *recursive,
+		PolicyPath:           policyPath,
+		Format:               *format,
+		Quiet:                *quiet,
+		NonInteractive:       *nonInteractive,
+		LogFile:              *logFile,
+		DryRun:               dryRun,
+		RepairUnicodeDeletes: repairUnicodeDeletes,
 	}, nil
 }
 

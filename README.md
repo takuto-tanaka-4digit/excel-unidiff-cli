@@ -39,8 +39,9 @@ Without a shared policy, Unicode drift creates hidden operational cost:
   - Non-destructive validation.
   - Drift + Unicode health checks on tracked files only.
 - `euni apply`
-  - Drift remediation only (`git config --local`).
+  - Drift remediation via `git config --local`.
   - Supports `--dry-run`.
+  - Supports `--repair-unicode-deletes` (restores staged/worktree deleted tracked paths using `core.precomposeunicode=false` mode).
 - `euni doctor`
   - Integrated diagnosis (`check` + `scan`) with cause classification.
 - `euni scan`
@@ -55,7 +56,7 @@ Without a shared policy, Unicode drift creates hidden operational cost:
 | Command | `--recursive=false` (default) | `--recursive=true` | Writes data |
 | --- | --- | --- | --- |
 | `check` | root repo only | root + submodules + nested repos | No |
-| `apply` | root repo only | root + submodules + nested repos | Yes (`git config --local` only) |
+| `apply` | root repo only | root + submodules + nested repos | Yes (`git config --local`; `--repair-unicode-deletes` also updates index/worktree) |
 | `doctor` | root repo only | root + submodules + nested repos | No |
 | `scan` | root repo only | root + submodules + nested repos | No |
 | `init-policy` | root repo only | N/A | Yes (`.euni.yml`) |
@@ -69,6 +70,10 @@ Note: subtree content is always included in root file scanning.
 
 - Safe default scope: `--recursive=false`.
 - Explicit write path: only `apply` and `init-policy` write.
+- `apply` default write scope is `git config --local` only.
+- `apply --repair-unicode-deletes` writes index/worktree for deleted tracked paths:
+  - staged deletions: `git restore --staged --worktree`
+  - worktree-only deletions: `git restore --worktree` (keeps staged non-delete changes)
 - `apply --dry-run` shows planned changes before write.
 - No global/system Git config changes.
 - No destructive Git commands:
@@ -96,6 +101,15 @@ euni check --repo . --recursive --policy ./.euni.yml
 euni apply --repo . --recursive --policy ./.euni.yml --dry-run
 euni apply --repo . --recursive --policy ./.euni.yml
 ```
+
+When `git status` shows Unicode phantom deletions, use one-command repair:
+
+```bash
+euni apply --repo . --recursive --policy ./.euni.yml --repair-unicode-deletes
+```
+
+Caution: `--repair-unicode-deletes` restores all deleted tracked paths in scope.  
+Do not use it when deletions in scope are intentional.
 
 4. Diagnose hard cases.
 

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -146,4 +148,153 @@ func splitNullSeparated(s string) []string {
 		out = append(out, p)
 	}
 	return out
+}
+
+type deletedTrackedPathsForRepair struct {
+	StagedPaths   []string
+	WorktreePaths []string
+}
+
+type deletedTrackedPathsRepairOutcome struct {
+	RestoredStagedPaths   []string
+	RestoredWorktreePaths []string
+	SkippedStagedPaths    []string
+}
+
+func (d deletedTrackedPathsForRepair) TotalCount() int {
+	seen := make(map[string]struct{}, len(d.StagedPaths)+len(d.WorktreePaths))
+	for _, p := range d.StagedPaths {
+		seen[p] = struct{}{}
+	}
+	for _, p := range d.WorktreePaths {
+		seen[p] = struct{}{}
+	}
+	return len(seen)
+}
+
+func (d deletedTrackedPathsRepairOutcome) RestoredCount() int {
+	return len(d.RestoredStagedPaths) + len(d.RestoredWorktreePaths)
+}
+
+func gitListDeletedTrackedPathsForRepair(repo string) (deletedTrackedPathsForRepair, error) {
+	collect := func(staged bool) ([]string, error) {
+		args := []string{"-c", "core.precomposeunicode=false", "diff"}
+		if staged {
+			args = append(args, "--cached")
+		}
+		args = append(args, "--name-only", "--diff-filter=D", "-z")
+
+		res, err := runGit(repo, args...)
+		if err != nil {
+			return nil, fmt.Errorf("git diff deleted paths failed: %w (%s)", err, strings.TrimSpace(res.stderr))
+		}
+		return splitNullSeparated(res.stdout), nil
+	}
+
+	stagedPaths, err := collect(true)
+	if err != nil {
+		return deletedTrackedPathsForRepair{}, err
+	}
+	worktreePaths, err := collect(false)
+	if err != nil {
+		return deletedTrackedPathsForRepair{}, err
+	}
+
+	stagedSet := make(map[string]struct{}, len(stagedPaths))
+	for _, p := range stagedPaths {
+		stagedSet[p] = struct{}{}
+	}
+
+	worktreeSet := make(map[string]struct{}, len(worktreePaths))
+	for _, p := range worktreePaths {
+		if _, ok := stagedSet[p]; ok {
+			continue
+		}
+		worktreeSet[p] = struct{}{}
+	}
+
+	stagedOut := make([]string, 0, len(stagedSet))
+	for p := range stagedSet {
+		stagedOut = append(stagedOut, p)
+	}
+	worktreeOut := make([]string, 0, len(worktreeSet))
+	for p := range worktreeSet {
+		worktreeOut = append(worktreeOut, p)
+	}
+	sort.Strings(stagedOut)
+	sort.Strings(worktreeOut)
+
+	return deletedTrackedPathsForRepair{
+		StagedPaths:   stagedOut,
+		WorktreePaths: worktreeOut,
+	}, nil
+}
+
+func splitRestorableAndConflictingStagedDeletedPaths(repo string, stagedPaths []string) ([]string, []string, error) {
+	restorable := make([]string, 0, len(stagedPaths))
+	conflicting := make([]string, 0)
+	for _, p := range stagedPaths {
+		abs := filepath.Join(repo, filepath.FromSlash(p))
+		_, err := os.Lstat(abs)
+		if err == nil {
+			conflicting = append(conflicting, p)
+			continue
+		}
+		if errors.Is(err, os.ErrNotExist) {
+			restorable = append(restorable, p)
+			continue
+		}
+		return nil, nil, fmt.Errorf("stat staged deleted path failed for %s: %w", p, err)
+	}
+	return restorable, conflicting, nil
+}
+
+func gitRestoreDeletedTrackedPathsForRepair(repo string, plan deletedTrackedPathsForRepair) (deletedTrackedPathsRepairOutcome, error) {
+	if len(plan.StagedPaths) == 0 && len(plan.WorktreePaths) == 0 {
+		return deletedTrackedPathsRepairOutcome{}, nil
+	}
+
+	runChunkedRestore := func(paths []string, argsPrefix []string, errMsg string) error {
+		if len(paths) == 0 {
+			return nil
+		}
+		const chunkSize = 200
+		for i := 0; i < len(paths); i += chunkSize {
+			end := i + chunkSize
+			if end > len(paths) {
+				end = len(paths)
+			}
+			args := append([]string{}, argsPrefix...)
+			args = append(args, paths[i:end]...)
+			res, err := runGit(repo, args...)
+			if err != nil {
+				return fmt.Errorf("%s: %w (%s)", errMsg, err, strings.TrimSpace(res.stderr))
+			}
+		}
+		return nil
+	}
+
+	restorableStagedPaths, skippedStagedPaths, err := splitRestorableAndConflictingStagedDeletedPaths(repo, plan.StagedPaths)
+	if err != nil {
+		return deletedTrackedPathsRepairOutcome{}, err
+	}
+	if err := runChunkedRestore(
+		restorableStagedPaths,
+		[]string{"-c", "core.precomposeunicode=false", "restore", "--staged", "--worktree", "--"},
+		"git restore staged deleted paths failed",
+	); err != nil {
+		return deletedTrackedPathsRepairOutcome{}, err
+	}
+	if err := runChunkedRestore(
+		plan.WorktreePaths,
+		[]string{"-c", "core.precomposeunicode=false", "restore", "--worktree", "--"},
+		"git restore worktree deleted paths failed",
+	); err != nil {
+		return deletedTrackedPathsRepairOutcome{}, err
+	}
+	return deletedTrackedPathsRepairOutcome{
+		RestoredStagedPaths:   restorableStagedPaths,
+		RestoredWorktreePaths: plan.WorktreePaths,
+		SkippedStagedPaths:    skippedStagedPaths,
+	}, nil
 }

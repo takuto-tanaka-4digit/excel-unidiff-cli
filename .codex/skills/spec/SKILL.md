@@ -147,13 +147,18 @@ Git 公式説明準拠:
 - 目的: drift 修復
 - コマンド専用オプション:
   - `--dry-run`: 変更予定のみ表示（書き込みしない）
+  - `--repair-unicode-deletes`: `core.precomposeunicode=false` モードで、削除済み追跡パス（staged/worktree）を復旧
 - 挙動:
   - 5.3 の対象範囲に対して drift 項目のみ `git config --local` で修正
+  - `--repair-unicode-deletes` 指定時、削除済み追跡パスを復旧（`core.precomposeunicode=false` モード）
+    - staged 削除: `git restore --staged --worktree`
+    - worktree のみ削除: `git restore --worktree`（staged の非削除変更は保持）
+  - `--repair-unicode-deletes` は対象範囲の削除済み追跡パスを一括復旧するため、意図的削除がある場合は使用しない
   - 修正後に `check` 相当で再評価（drift + Unicode）
   - `--dry-run` 時は変更予定のみ表示
 - 終了コード:
   - `0`: 修正後に findings なし
-  - `1`: `--dry-run` で変更予定あり、または findings 残存（例: drift / Unicode / `UG012` / `UG013`）
+  - `1`: `--dry-run` で変更予定あり、または findings 残存（例: drift / Unicode / `UG012` / `UG013` / `UG014`）
   - `2`: 実行エラー
 
 #### doctor
@@ -338,7 +343,7 @@ Git 公式説明準拠:
   - `path` (`string|null`)
   - `hint` (`string|null`)
 - 分類ルール:
-  - `results[]`: findings（`exitCode=1` 相当、例: `UG004`, `UG005`, `UG011`, `UG012`, `UG013`）
+  - `results[]`: findings（`exitCode=1` 相当、例: `UG004`, `UG005`, `UG011`, `UG012`, `UG013`, `UG014`）
   - `errors[]`: 実行エラー（`exitCode=2` 相当、例: `UG001`, `UG002`, `UG003`, `UG006`, `UG007`, `UG008`, `UG009`, `UG010`）
 - NFC 衝突（`UG005`）は `details` に次を必須で持つ:
   - `normalizedPath` (`string`)
@@ -500,6 +505,7 @@ exit $check_rc
   - `UG011`: combining mark 含有パス検知（findings）
   - `UG012`: Git 管理外要因検知（findings）
   - `UG013`: policy 適用不能/未解決マッチ検知（findings）
+  - `UG014`: unicode delete repair 関連検知（`apply --dry-run --repair-unicode-deletes` の予定表示、または apply 実行時の安全skip通知）
 - メッセージ方針:
   - ユーザー向けは平易文
   - 詳細は `--format json` で machine-readable
